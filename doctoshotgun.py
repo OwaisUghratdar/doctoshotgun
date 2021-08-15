@@ -10,6 +10,7 @@ import datetime
 import argparse
 import getpass
 import unicodedata
+from abc import ABCMeta, abstractmethod
 
 from dateutil.parser import parse as parse_date
 from dateutil.relativedelta import relativedelta
@@ -213,6 +214,51 @@ class MasterPatientPage(JsonPage):
 class CityNotFound(Exception):
     pass
 
+class IPageBuilder(metaclass=ABCMeta):
+    @classmethod
+    @abstractmethod
+    def construct_page_reference(cls, page_type: str):
+        "Construct reference to page class"
+
+    @classmethod
+    @abstractmethod
+    def construct(cls, page_type: str):
+        "Construct page object"
+
+
+class PageBuilder(IPageBuilder):
+    @classmethod
+    def construct_page_reference(cls, page_type: str):
+        page_ref = None
+        if page_type == 'login_page':
+            page_ref = LoginPage
+        elif (page_type == 'send_auth_code_page'):
+            page_ref = SendAuthCodePage
+        elif(page_type == 'challenge_page'):
+            page_ref = ChallengePage
+        elif(page_type == 'centers_page'):
+            page_ref = CentersPage
+        elif(page_type == 'center_booking_page'):
+            page_ref = CenterBookingPage
+        elif(page_type == 'center_result_page'):
+            page_ref = CenterResultPage
+        elif(page_type == 'availabilities_page'):
+            page_ref = AvailabilitiesPage
+        elif(page_type == 'appointment_page'):
+            page_ref = AppointmentPage
+        elif(page_type == 'appointment_edit_page'):
+            page_ref = AppointmentEditPage
+        elif(page_type == 'appointment_post_page'):
+            page_ref = AppointmentPostPage
+        elif(page_type == 'master_patient_page'):
+            page_ref = MasterPatientPage
+
+        return page_ref
+
+    @classmethod
+    def construct(cls, page_type: str):
+        ref = cls.construct_page_reference(page_type)
+        return ref()
 
 class Doctolib(LoginBrowser):
     # individual properties for each country. To be defined in subclasses
@@ -221,20 +267,20 @@ class Doctolib(LoginBrowser):
     centers = URL('')
     center = URL('')
     # common properties
-    login = URL('/login.json', LoginPage)
-    send_auth_code = URL('/api/accounts/send_auth_code', SendAuthCodePage)
-    challenge = URL('/login/challenge', ChallengePage)
-    center_result = URL(r'/search_results/(?P<id>\d+).json', CenterResultPage)
-    center_booking = URL(r'/booking/(?P<center_id>.+).json', CenterBookingPage)
-    availabilities = URL(r'/availabilities.json', AvailabilitiesPage)
+    login = URL('/login.json', PageBuilder.construct_page_reference('login_page'))
+    send_auth_code = URL('/api/accounts/send_auth_code', PageBuilder.construct_page_reference('send_auth_code_page'))
+    challenge = URL('/login/challenge', PageBuilder.construct_page_reference('challenge_page'))
+    center_result = URL(r'/search_results/(?P<id>\d+).json', PageBuilder.construct_page_reference('center_result_page'))
+    center_booking = URL(r'/booking/(?P<center_id>.+).json', PageBuilder.construct_page_reference('center_booking_page'))
+    availabilities = URL(r'/availabilities.json', PageBuilder.construct_page_reference('availabilities_page'))
     second_shot_availabilities = URL(
-        r'/second_shot_availabilities.json', AvailabilitiesPage)
-    appointment = URL(r'/appointments.json', AppointmentPage)
+        r'/second_shot_availabilities.json', PageBuilder.construct_page_reference('availabilities_page'))
+    appointment = URL(r'/appointments.json', PageBuilder.construct_page_reference('appointment_page'))
     appointment_edit = URL(
-        r'/appointments/(?P<id>.+)/edit.json', AppointmentEditPage)
+        r'/appointments/(?P<id>.+)/edit.json', PageBuilder.construct_page_reference('appointment_edit_page'))
     appointment_post = URL(
-        r'/appointments/(?P<id>.+).json', AppointmentPostPage)
-    master_patient = URL(r'/account/master_patients.json', MasterPatientPage)
+        r'/appointments/(?P<id>.+).json', PageBuilder.construct_page_reference('appointment_post_page'))
+    master_patient = URL(r'/account/master_patients.json', PageBuilder.construct_page_reference('master_patient_page'))
 
     def _setup_session(self, profile):
         session = Session()
