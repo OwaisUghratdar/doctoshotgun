@@ -601,6 +601,24 @@ class DoctolibFR(Doctolib):
     center = URL(r'/centre-de-sante/.*', CenterPage)
 
 
+class DoctoLibAdapter():
+
+    def __init__(self, doctolib=None):
+        self.doctolib = doctolib
+
+    def do_login(self, code):
+        return self.doctolib.do_login(code)
+    
+    def get_patients(self):
+        return self.doctolib.get_patients()
+
+    def find_centers(self, where, motives=None, page=1):
+        return self.doctolib.find_centers(where, motives, page)
+
+    def try_to_book(self, center, vaccine_list, start_date, end_date, only_second, only_third, dry_run):
+        return doctolib.try_to_book(center, vaccine_list, start_date, end_date, only_second, only_third, dry_run)
+
+
 class Application:
     @classmethod
     def create_default_logger(cls):
@@ -683,10 +701,11 @@ class Application:
 
         docto = doctolib_map[args.country](
             args.username, args.password, responses_dirname=responses_dirname)
-        if not docto.do_login(args.code):
+        doctolibAdapter = DoctoLibAdapter(docto)
+        if not doctolibAdapter.do_login(args.code):
             return 1
 
-        patients = docto.get_patients()
+        patients = doctolibAdapter.get_patients()
         if len(patients) == 0:
             print("It seems that you don't have any Patient registered in your Doctolib account. Please fill your Patient data on Doctolib Website.")
             return 1
@@ -791,7 +810,7 @@ class Application:
         while True:
             log_ts()
             try:
-                for center in docto.find_centers(cities, motives):
+                for center in doctolibAdapter.find_centers(cities, motives):
                     if args.center:
                         if center['name_with_title'] not in args.center:
                             logging.debug("Skipping center '%s'" %
@@ -830,7 +849,7 @@ class Application:
 
                     log('Center %(name_with_title)s (%(city)s):' % center)
 
-                    if docto.try_to_book(center, vaccine_list, start_date, end_date, args.only_second, args.only_third, args.dry_run):
+                    if doctolibAdapter.try_to_book(center, vaccine_list, start_date, end_date, args.only_second, args.only_third, args.dry_run):
                         log('')
                         log('💉 %s Congratulations.' %
                             colored('Booked!', 'green', attrs=('bold',)))
