@@ -600,8 +600,66 @@ class DoctolibFR(Doctolib):
     centers = URL(r'/vaccination-covid-19/(?P<where>\w+)', CentersPage)
     center = URL(r'/centre-de-sante/.*', CenterPage)
 
+class State(metaclass=ABCMeta):
+    application = None
+    def __init__(self, application):
+        self.application = application 
+
+    @abstractmethod
+    def parse_args():
+
+    @abstractmethod
+    def book():
+
+    @abstractmethod
+    def finish():
+
+class StartState(State):
+    def start(self):
+        application.change_state(ParseArgsState())
+
+    def parse_args(self):
+
+    def book(self):
+
+    def finish(self):
+
+class ParseArgsState(State):
+    def start(self):
+
+    def parse_args(self):
+        application.change_state(BookState())
+
+    def book(self):
+
+    def finish(self):
+
+
+class BookState(State):
+    def start(self):
+
+    def parse_args(self):
+
+    def book(self):
+        application.change_state(FinishState())
+
+    def finish(self):
+
+class FinishState(State):
+    def start(self):
+
+    def parse_args(self):
+
+    def book(self):
+
+    def finish(self):
+        sys.exit(1)
 
 class Application:
+    state = StartState()
+    def change_state(self, state):
+        self.state = state
+
     @classmethod
     def create_default_logger(cls):
         # stderr logger
@@ -618,13 +676,14 @@ class Application:
         logging.root.addHandler(self.create_default_logger())
 
     def main(self, cli_args=None):
+        state.start()
         colorama.init()  # needed for windows
 
         doctolib_map = {
             "fr": DoctolibFR,
             "de": DoctolibDE
         }
-
+        self.state(parse_args())
         parser = argparse.ArgumentParser(
             description="Book a vaccine slot on Doctolib")
         parser.add_argument('--debug', '-d', action='store_true',
@@ -788,6 +847,8 @@ class Application:
         log('This may take a few minutes/hours, be patient!')
         cities = [docto.normalize(city) for city in args.city.split(',')]
 
+        self.state(book())
+
         while True:
             log_ts()
             try:
@@ -855,6 +916,8 @@ class Application:
                 message = template.format(type(e).__name__, e.args)
                 print(message)
                 return 1
+            self.state(finish())
+
         return 0
 
 
