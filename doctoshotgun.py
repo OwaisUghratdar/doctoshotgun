@@ -214,8 +214,25 @@ class CityNotFound(Exception):
     pass
 
 
+class EventManager():
+    listeners = []
+
+    def subscribe(eventType, listener):
+        listeners.append({eventType: eventType, listener: listener})
+    def unsubscribe():
+        for i in range(len(listeners)):
+            if listeners[i]['eventType'] == eventType:
+            del listeners[i]
+        
+    def notify(eventType, data):
+        for i in range(len(listeners)):
+            if listeners[i]['eventType'] == eventType:
+                listeners[i]['listener'].update()
+
+
 class Doctolib(LoginBrowser):
     # individual properties for each country. To be defined in subclasses
+    eventManager = EventManager()
     BASEURL = ""
     vaccine_motives = {}
     centers = URL('')
@@ -238,7 +255,6 @@ class Doctolib(LoginBrowser):
 
     def _setup_session(self, profile):
         session = Session()
-
         session.hooks['response'].append(self.set_normalized_url)
         if self.responses_dirname is not None:
             session.hooks['response'].append(self.save_response)
@@ -334,10 +350,12 @@ class Doctolib(LoginBrowser):
             if next_page:
                 for center in self.find_centers(where, motives, next_page):
                     yield center
+            self.eventManager.notify('centers', center)
+
 
     def get_patients(self):
         self.master_patient.go()
-
+        self.eventManager.notify('patients', self.page.get_patients())
         return self.page.get_patients()
 
     @classmethod
@@ -600,8 +618,16 @@ class DoctolibFR(Doctolib):
     centers = URL(r'/vaccination-covid-19/(?P<where>\w+)', CentersPage)
     center = URL(r'/centre-de-sante/.*', CenterPage)
 
+class PatientsListener():
+
+    def _init__(self, patients=None):
+        self.patients = patients
+
+    def update(self, data):
+        self.patients = data
 
 class Application:
+    patientsListener = PatientListener()
     @classmethod
     def create_default_logger(cls):
         # stderr logger
@@ -685,6 +711,8 @@ class Application:
             args.username, args.password, responses_dirname=responses_dirname)
         if not docto.do_login(args.code):
             return 1
+
+        docto.eventManager.subscribe('patients', patientsListener)
 
         patients = docto.get_patients()
         if len(patients) == 0:
